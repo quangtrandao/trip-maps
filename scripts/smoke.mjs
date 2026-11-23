@@ -354,6 +354,9 @@ async function testItaly(b) {
   assert((await b.evalJs("document.querySelectorAll('.legend div i').length")) === 5, "italy: legend lists 5 families");
   await b.sleep(1500);
   assert((await b.evalJs("document.querySelectorAll('path.leaflet-interactive').length")) === 19, "italy: 19 rail legs");
+  const markerLabels = await b.evalJs("[...document.querySelectorAll('.leaflet-tooltip')].map(t => t.textContent).join('|')");
+  assert(markerLabels.includes("Aix-en-Provence"), "italy: aix-en-provence is a day trip");
+  assert(!markerLabels.includes("Monaco"), "italy: monaco is gone");
   const noDriving = await b.evalJs("!performance.getEntriesByType('resource').some(e => e.name.includes('router.project-osrm.org'))");
   assert(noDriving, "italy: no driving-route lookups");
   assert(b.exceptions.length === 0, `italy: no page exceptions (${b.exceptions.join(" | ")})`);
