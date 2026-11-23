@@ -114,6 +114,62 @@ japan:{
 "Osaka>Kyoto":[[34.7025,135.4959],[34.7335,135.5002],[34.9858,135.7588]]
  },
  fallbacks:{"Takayama>Matsumoto":[[36.1411,137.2531],[36.19,137.55],[36.23,137.965]]}
+},
+italy:{
+ title:"Italy & France",sub:"24 nights · all by train",label:"🇮🇹→🇫🇷",
+ notionUrl:"https://app.notion.com/p/PLACEHOLDER-ITALY-FRANCE",
+ currency:{symbol:"€",locale:"en-US"},
+ map:{center:[45.4,6.0],zoom:5,fitInclude:"stops+trips"},
+ defaultBase:"voyager",baseLayers:["voyager","positron","osm"],
+ staySelector:"stops",
+ stops:[
+{hd:0,pics:[wf("20110724 Milan Cathedral 5260.jpg"),wf("Lake Como from Varenna 04.jpg")],tn:"Frecciarossa 9611 to Bologna Centrale",tc:45,c:"Milan",r:"Lombardy",ll:[45.4642,9.19],n:2,acc:"Hotel in Porta Venezia",ac:360,act:"Day 1: land at Malpensa, Malpensa Express to Centrale, aperitivo in Navigli. Day 2: Duomo terrace, Galleria, risotto alla milanese, then Lake Como by train.",b:700,t:"Frecciarossa",m:60},
+{hd:0,pics:[wf("Piazza maggiore bologna.jpg"),wf("Duomo di Modena 20.JPG")],tn:"Intercity to Genova Piazza Principe",tc:30,c:"Bologna",r:"Emilia-Romagna",ll:[44.4949,11.3426],n:3,acc:"Hotel near Piazza Maggiore",ac:330,act:"Day 3: Bologna food walk — tagliatelle al ragù, tortellini in brodo, mortadella, Quadrilatero market. Days 4-5: day trips to Modena and Parma.",b:600,t:"Intercity",m:120},
+{hd:0,pics:[wf("Sunset - Harbour of Genoa seen from Piazzale di San Francesco D'Assisi - Genoa 2014 (6).jpg"),wf("Monterosso al Mare-panorama-convento dei cappuccini2-flickr.jpg")],tn:"TER to Nice via Ventimiglia",tc:30,c:"Genoa",r:"Liguria",ll:[44.4056,8.9463],n:2,acc:"Hotel in the old port",ac:220,act:"Day 6: pesto, focaccia and farinata in the caruggi; Porto Antico. Day 7: Cinque Terre by regional train.",b:420,t:"TER",m:180},
+{hd:0,pics:[wf("Nice, Quai des États-Unis and Promenade des Anglais FRANCE.jpg"),wf("Hafen und Felsen von Monaco-La Turbie.jpg")],tn:"TGV to Avignon TGV",tc:45,c:"Nice",r:"Provence-Alpes-Côte d'Azur",ll:[43.7102,7.262],n:2,acc:"Hotel near Place Masséna",ac:300,act:"Day 8: Promenade des Anglais, Cours Saleya market, socca. Day 9: Monaco by train — harbour, Monaco-Ville, Monte-Carlo.",b:520,t:"TGV",m:190},
+{hd:0,pics:[wf("Le pont d'Avignon depuis l'île de la Barthelasse.jpg"),wf("Pont du Gard 004.jpg")],tn:"TGV to Lyon Part-Dieu",tc:25,c:"Avignon",r:"Provence",ll:[43.9493,4.8055],n:1,acc:"Hotel inside the walls",ac:140,act:"Day 10: Palais des Papes, Pont Saint-Bénézet, Les Halles market; afternoon bus to the Pont du Gard.",b:230,t:"TGV",m:65},
+{hd:0,pics:[wf("Lyon fourviere congres.jpg"),wf("Mairie Pérouges 2.jpg")],tn:"TGV to Paris Gare de Lyon",tc:60,c:"Lyon",r:"Auvergne-Rhône-Alpes",ll:[45.764,4.8357],n:2,acc:"Hotel in Presqu'île",ac:280,act:"Day 11: bouchon lunch, Vieux Lyon, Fourvière, Halles Paul Bocuse. Day 12: Pérouges by train, galette de Pérouges.",b:480,t:"TGV",m:120},
+{hd:0,pics:[wf("Champ de Mars from the Eiffel Tower - July 2006 edit.jpg"),wf("Versailles - vasque et façade.jpg")],c:"Paris",r:"Île-de-France",ll:[48.8566,2.3522],n:12,acc:"Staying with parents",ac:0,act:"Days 13-24: stay with family. Markets, bakeries and neighbourhood bistros; day trips to Versailles, Giverny, Reims, Chartres and Fontainebleau.",b:800,t:"",m:0}
+ ],
+ trips:[
+{pics:[wf("Lake Como from Varenna 04.jpg")],tn:"Regionale to Como San Giovanni",tc:5,c:"Como",base:"Milan",r:"Lombardy",ll:[45.8081,9.0852],act:"Ferry to Bellagio, lakeside lunch, Villa del Balbianello.",b:60,t:"Regionale",m:40},
+{pics:[wf("Duomo di Modena 20.JPG")],tn:"Regionale to Modena",tc:5,c:"Modena",base:"Bologna",r:"Emilia-Romagna",ll:[44.6471,10.9252],act:"Balsamic acetaia visit, Mercato Albinelli, osteria lunch.",b:70,t:"Regionale",m:25},
+{pics:[wf("Cathedral (Parma) - Assumption by Correggio.jpg")],tn:"Regionale to Parma",tc:9,c:"Parma",base:"Bologna",r:"Emilia-Romagna",ll:[44.8015,10.3279],act:"Parmigiano-Reggiano caseificio, prosciutto di Parma, Duomo and Baptistery.",b:80,t:"Regionale",m:55},
+{pics:[wf("Basilica of San Vitale - triumphal arch mosaics.jpg")],tn:"Regionale to Ravenna",tc:8,c:"Ravenna",base:"Bologna",r:"Emilia-Romagna",ll:[44.4184,12.2035],act:"UNESCO mosaics at San Vitale and Galla Placidia; piadina lunch.",b:60,t:"Regionale",m:80},
+{pics:[wf("Monterosso al Mare-panorama-convento dei cappuccini2-flickr.jpg")],tn:"Regionale to Monterosso",tc:6,c:"Cinque Terre",base:"Genoa",r:"Liguria",ll:[44.1461,9.654],act:"Monterosso, Vernazza and Manarola by regional train; pesto and focaccia.",b:70,t:"Regionale",m:70},
+{pics:[wf("Hafen und Felsen von Monaco-La Turbie.jpg")],tn:"TER to Monaco-Monte-Carlo",tc:5,c:"Monaco",base:"Nice",r:"Monaco",ll:[43.7384,7.4246],act:"Monaco-Ville, the harbour, Casino de Monte-Carlo; dinner back in Nice.",b:40,t:"TER",m:25},
+{pics:[wf("Pont du Gard 004.jpg")],tn:"Bus to Pont du Gard",tc:2,c:"Pont du Gard",base:"Avignon",r:"Occitanie",ll:[43.9475,4.535],act:"Roman aqueduct and river swim; Nîmes arena if time allows.",b:40,t:"Bus",m:30},
+{pics:[wf("Mairie Pérouges 2.jpg")],tn:"TER to Meximieux",tc:7,c:"Pérouges",base:"Lyon",r:"Auvergne-Rhône-Alpes",ll:[45.9042,5.1706],act:"Medieval walled town; galette de Pérouges.",b:30,t:"TER",m:45},
+{pics:[wf("Versailles - vasque et façade.jpg")],tn:"RER C to Versailles Château",tc:4,c:"Versailles",base:"Paris",r:"Île-de-France",ll:[48.8049,2.1204],act:"Palace, gardens and Grand Trianon.",b:45,t:"RER",m:40},
+{pics:[wf("Bridge, Garden, Monet, Giverny.jpg")],tn:"TER to Vernon + shuttle",tc:18,c:"Giverny",base:"Paris",r:"Normandy",ll:[49.0757,1.5337],act:"Monet's house and the water-lily garden.",b:35,t:"TER",m:45},
+{pics:[wf("South tower of Cathédrale Notre-Dame de Reims 20140306 1.jpg")],tn:"TGV to Reims",tc:25,c:"Reims",base:"Paris",r:"Grand Est",ll:[49.2583,4.0317],act:"Champagne house tour (Taittinger or Pommery) and the cathedral.",b:90,t:"TGV",m:45},
+{pics:[wf("Chartres - cathédrale - rosace nord.jpg")],tn:"TER to Chartres",tc:17,c:"Chartres",base:"Paris",r:"Centre-Val de Loire",ll:[48.4469,1.489],act:"Cathedral, labyrinth and old town.",b:30,t:"TER",m:60},
+{pics:[wf("Château de Fontainebleau - pano façade.jpg")],tn:"TER to Fontainebleau-Avon",tc:10,c:"Fontainebleau",base:"Paris",r:"Île-de-France",ll:[48.4047,2.7016],act:"Château and a forest walk.",b:35,t:"TER",m:40}
+ ],
+ colors:{"Frecciarossa":"#c92a2a","Intercity":"#1c7ed6","TGV":"#7048e8","TER":"#f59e0b","Regionale":"#2f9e44","RER":"#0c8599","Bus":"#868e96"},
+ // Every leg is drawn as rail; there is no driving lookup on this journey.
+ rail:{
+"Milan>Bologna":[[45.4642,9.19],[45.28,9.6],[45.05,10.0],[44.8,10.33],[44.4949,11.3426]],
+"Bologna>Genoa":[[44.4949,11.3426],[44.55,11.0],[44.6,10.5],[44.55,9.9],[44.42,9.1],[44.4056,8.9463]],
+"Genoa>Nice":[[44.4056,8.9463],[44.3,8.5],[44.1,8.2],[43.89,7.9],[43.79,7.6],[43.7102,7.262]],
+"Nice>Avignon":[[43.7102,7.262],[43.55,6.6],[43.45,5.9],[43.53,5.45],[43.9493,4.8055]],
+"Avignon>Lyon":[[43.9493,4.8055],[44.2,4.8],[44.6,4.8],[45.2,4.83],[45.764,4.8357]],
+"Lyon>Paris":[[45.764,4.8357],[45.9,4.75],[46.5,4.4],[47.0,4.5],[47.7,4.9],[48.3,3.9],[48.8566,2.3522]],
+"Milan>Como":[[45.4642,9.19],[45.6,9.12],[45.8081,9.0852]],
+"Bologna>Modena":[[44.4949,11.3426],[44.55,11.1],[44.6471,10.9252]],
+"Bologna>Parma":[[44.4949,11.3426],[44.65,11.05],[44.7,10.6],[44.8015,10.3279]],
+"Bologna>Ravenna":[[44.4949,11.3426],[44.4,11.7],[44.3,12.0],[44.4184,12.2035]],
+"Genoa>Cinque Terre":[[44.4056,8.9463],[44.33,8.95],[44.24,9.2],[44.16,9.5],[44.1461,9.654]],
+"Nice>Monaco":[[43.7102,7.262],[43.72,7.35],[43.7384,7.4246]],
+"Avignon>Pont du Gard":[[43.9493,4.8055],[43.95,4.68],[43.9475,4.535]],
+"Lyon>Pérouges":[[45.764,4.8357],[45.85,5.0],[45.9042,5.1706]],
+"Paris>Versailles":[[48.8566,2.3522],[48.83,2.25],[48.8049,2.1204]],
+"Paris>Giverny":[[48.8566,2.3522],[48.95,2.1],[49.02,1.75],[49.0757,1.5337]],
+"Paris>Reims":[[48.8566,2.3522],[49.0,2.9],[49.1,3.6],[49.2583,4.0317]],
+"Paris>Chartres":[[48.8566,2.3522],[48.7,2.2],[48.55,1.7],[48.4469,1.489]],
+"Paris>Fontainebleau":[[48.8566,2.3522],[48.7,2.5],[48.55,2.65],[48.4047,2.7016]]
+ },
+ fallbacks:{}
 }
 };
 //==DATA-END==

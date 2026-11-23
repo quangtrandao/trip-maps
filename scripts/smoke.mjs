@@ -240,7 +240,7 @@ async function testLegs(b) {
 
 async function testToggle(b) {
   await b.navigate("/?trip=japan");
-  assert(await b.waitFor("document.querySelectorAll('#journeys button').length === 2", 5000), "toggle: one button per journey");
+  assert(await b.waitFor("document.querySelectorAll('#journeys button').length === 3", 5000), "toggle: one button per journey");
   assert(await b.click("#journeys button[data-journey='china']"), "toggle: china button exists");
   assert(await b.waitFor("document.title === 'Guangzhou 2'", 5000), "toggle: clicking china switches the map");
   assert((await b.evalJs("location.search")) === "?trip=china", "toggle: url mirrors the journey");
@@ -339,11 +339,29 @@ async function testRegressions(b) {
   assert(b.exceptions.length === 0, `no exceptions in the regression pass (${b.exceptions.join(" | ")})`);
 }
 
+async function testItaly(b) {
+  await b.navigate("/?trip=italy");
+  assert(await b.waitFor("document.title === 'Italy & France'", 8000), "italy: title is Italy & France");
+  assert((await b.evalJs("document.getElementById('sub').textContent")) === "24 nights · all by train", "italy: sub line");
+  assert((await b.evalJs("document.querySelectorAll('.leaflet-marker-icon .stop').length")) === 20, "italy: 20 markers (7 stops + 13 day trips)");
+  assert((await b.evalJs("document.querySelectorAll('#stay-sel option').length")) === 7, "italy: 7 stay options");
+  assert((await b.evalJs("document.querySelector('#stay-sel option').textContent")).startsWith("Milan · 2 nights"), "italy: first stay is Milan");
+  const stats = await b.evalJs("document.getElementById('stats').textContent");
+  assert(stats.includes("24 nights") && stats.includes("€"), "italy: stats show 24 nights in euros");
+  assert((await b.evalJs("document.querySelectorAll('.legend div i').length")) === 7, "italy: legend lists 7 modes");
+  await b.sleep(1500);
+  assert((await b.evalJs("document.querySelectorAll('path.leaflet-interactive').length")) === 19, "italy: 19 rail legs");
+  const noDriving = await b.evalJs("!performance.getEntriesByType('resource').some(e => e.name.includes('router.project-osrm.org'))");
+  assert(noDriving, "italy: no driving-route lookups");
+  assert(b.exceptions.length === 0, `italy: no page exceptions (${b.exceptions.join(" | ")})`);
+}
+
 async function main() {
   await withBrowser(async (b) => {
     await testMount(b);
     await testLegs(b);
     await testToggle(b);
+    await testItaly(b);
     await testRegressions(b);
   });
   const passed = results.filter((r) => r.ok).length;

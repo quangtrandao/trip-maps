@@ -4,6 +4,8 @@ One static Leaflet app for every trip, with a toggle between destinations.
 
 - **China** — Guangzhou 2 (Guangdong base, day trips to Foshan, Shenzhen, Zhaoqing, Hong Kong)
 - **Japan** — Hokuriku 2, November 2027 (Osaka → Gero Onsen → Takayama → Matsumoto → Tokyo)
+- **Italy → France** — 24 nights, train only (Milan → Bologna → Genoa → Nice → Avignon →
+  Lyon → Paris), 13 day trips, food-led, no driving
 
 Each journey is generated from its own Notion database and lives as one data
 block in `src/index.html`.
