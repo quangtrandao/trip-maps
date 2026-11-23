@@ -152,6 +152,13 @@ async function withBrowser(fn) {
         await send("Page.removeScriptToEvaluateOnNewDocument", { identifier: id });
       }
     },
+    async blockUrls(patterns) {
+      await send("Network.enable");
+      await send("Network.setBlockedURLs", { urls: patterns });
+    },
+    async unblockUrls() {
+      await send("Network.setBlockedURLs", { urls: [] });
+    },
     sleep,
   };
 
@@ -275,11 +282,69 @@ async function testToggle(b) {
   assert(b.exceptions.length === 0, `no page exceptions while toggling (${b.exceptions.join(" | ")})`);
 }
 
+async function testRegressions(b) {
+  // Boot exactly once: with storage blocked so no cache can hide a second
+  // mount, no route URL may be requested twice.
+  await b.addInitScript(`
+    Storage.prototype.getItem = function(){ throw new Error('blocked') };
+    Storage.prototype.setItem = function(){ throw new Error('blocked') };
+    window.__osrmCalls = 0; window.__osrmUrls = new Set();
+    const f = window.fetch;
+    window.fetch = (...a) => {
+      const u = String(a[0]);
+      if (u.includes('router.project-osrm.org')) { window.__osrmCalls++; window.__osrmUrls.add(u); }
+      return f(...a);
+    };`);
+  await b.navigate("/?trip=japan");
+  await b.sleep(2500);
+  const osrm = JSON.parse(await b.evalJs("JSON.stringify({calls: window.__osrmCalls, unique: window.__osrmUrls.size})"));
+  assert(osrm.calls === osrm.unique, `boot mounts once: no route requested twice (${osrm.calls} calls, ${osrm.unique} urls)`);
+  await b.clearInitScripts();
+
+  // Base-layer control keeps the original human labels.
+  await b.navigate("/?trip=china");
+  await b.sleep(800);
+  const chinaLayers = await b.evalJs("document.querySelector('.leaflet-control-layers-base')?.innerText || ''");
+  assert(chinaLayers.includes("Clean (CARTO Voyager)") && chinaLayers.includes("Light grey (CARTO Positron)") && chinaLayers.includes("OpenStreetMap standard"), "china: layer control uses display names");
+  await b.navigate("/?trip=japan");
+  await b.sleep(800);
+  const japanLayers = await b.evalJs("document.querySelector('.leaflet-control-layers-base')?.innerText || ''");
+  assert(japanLayers.includes("English labels (GSI Japan)"), "japan: GSI layer keeps its display name");
+  assert(!/voyager|positron|gsi/.test(japanLayers), "layer control never shows registry keys");
+
+  // Unreachable photos degrade to the existing empty state.
+  await b.blockUrls(["*Special:FilePath*"]);
+  await b.navigate("/?trip=china");
+  await b.sleep(1200);
+  await b.evalJs("document.querySelectorAll('.leaflet-marker-icon')[0].dispatchEvent(new MouseEvent('mouseover',{bubbles:true}))");
+  const degraded = await b.waitFor("!!document.querySelector('.leaflet-popup .none')", 8000);
+  assert(degraded, "china: blocked photos fall back to 'No picture yet'");
+  const degradedText = await b.evalJs("document.querySelector('.leaflet-popup .none')?.textContent || ''");
+  assert(degradedText.includes("No picture yet"), "china: fallback text is the original empty state");
+  const brokenImgs = await b.evalJs("document.querySelectorAll('.leaflet-popup img').length");
+  assert(brokenImgs === 0, `china: failed images are removed from the carousel (${brokenImgs} left)`);
+  await b.evalJs("document.querySelector('path.leaflet-interactive')?.dispatchEvent(new MouseEvent('mouseover',{bubbles:true}))");
+  await b.sleep(600);
+  const tipImgs = await b.evalJs("document.querySelectorAll('.leaflet-tooltip.leg img').length");
+  assert(tipImgs === 0, `leg tooltip drops a failed photo (${tipImgs} left)`);
+  await b.unblockUrls();
+
+  // A drawn fallback must still be upgraded by a real road lookup.
+  await b.navigate("/");
+  await b.evalJs("localStorage.clear()");
+  await b.navigate("/?trip=japan");
+  await b.sleep(3000);
+  const asked = await b.evalJs("performance.getEntriesByType('resource').some(e => e.name.includes('137.97,36.24'))");
+  assert(asked, "japan: Takayama>Matsumoto asks OSRM even though a fallback is drawn");
+  assert(b.exceptions.length === 0, `no exceptions in the regression pass (${b.exceptions.join(" | ")})`);
+}
+
 async function main() {
   await withBrowser(async (b) => {
     await testMount(b);
     await testLegs(b);
     await testToggle(b);
+    await testRegressions(b);
   });
   const passed = results.filter((r) => r.ok).length;
   console.log(`\nsmoke: ${passed}/${results.length} checks passed`);

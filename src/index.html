@@ -52,10 +52,10 @@ const CK="cb1_4dt6_1_b5fc5b5204dd3e9d89b2b612"; // CARTO key: visible in page so
 const OSM="© OpenStreetMap contributors",CA=OSM+' © <a href="https://carto.com/attributions">CARTO</a>';
 const wf=n=>"https://commons.wikimedia.org/wiki/Special:FilePath/"+encodeURIComponent(n)+"?width=1000";
 const TILES={
- voyager:{url:"https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png?key="+CK,options:{subdomains:"abcd",maxZoom:19,attribution:CA}},
- positron:{url:"https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png?key="+CK,options:{subdomains:"abcd",maxZoom:19,attribution:CA}},
- gsi:{url:"https://cyberjapandata.gsi.go.jp/xyz/english/{z}/{x}/{y}.png",options:{minZoom:5,maxNativeZoom:11,maxZoom:18,attribution:'<a href="https://maps.gsi.go.jp/development/ichiran.html">GSI Japan</a>'}},
- osm:{url:"https://tile.openstreetmap.org/{z}/{x}/{y}.png",options:{maxZoom:18,attribution:OSM}}
+ voyager:{name:"Clean (CARTO Voyager)",url:"https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png?key="+CK,options:{subdomains:"abcd",maxZoom:19,attribution:CA}},
+ positron:{name:"Light grey (CARTO Positron)",url:"https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png?key="+CK,options:{subdomains:"abcd",maxZoom:19,attribution:CA}},
+ gsi:{name:"English labels (GSI Japan)",url:"https://cyberjapandata.gsi.go.jp/xyz/english/{z}/{x}/{y}.png",options:{minZoom:5,maxNativeZoom:11,maxZoom:18,attribution:'<a href="https://maps.gsi.go.jp/development/ichiran.html">GSI Japan</a>'}},
+ osm:{name:"OpenStreetMap standard",url:"https://tile.openstreetmap.org/{z}/{x}/{y}.png",options:{maxZoom:18,attribution:OSM}}
 };
 const JOURNEYS={
 china:{
@@ -133,9 +133,25 @@ const dur = m => m >= 60 ? Math.floor(m / 60) + "h" + (m % 60 ? String(m % 60).p
 
 function carHTML(list) {
   return `<div class="car">${list.length
-    ? `<div class="trk">${list.map(u => `<img src="${u}" alt="">`).join("")}</div><span class="ct">1/${list.length}</span>`
+    ? `<div class="trk">${list.map(u => `<img src="${u}" alt="" onerror="tripImgFail(this)">`).join("")}</div><span class="ct">1/${list.length}</span>`
     : `<div class="none">No picture yet</div>`}</div>`;
 }
+
+// A photo that cannot load is dropped; an empty carousel falls back to the
+// same empty state used when a stop has no pictures at all.
+window.tripImgFail = (img) => {
+  const track = img.closest(".trk");
+  img.remove();
+  if (!track) return;
+  const car = track.closest(".car");
+  const left = track.querySelectorAll("img").length;
+  if (!left) {
+    if (car) car.innerHTML = `<div class="none">No picture yet</div>`;
+    return;
+  }
+  const ct = car && car.querySelector(".ct");
+  if (ct) ct.textContent = "1/" + left;
+};
 
 function wireCar(d, list) {
   const trk = d.querySelector(".trk"), ct = d.querySelector(".ct");
@@ -198,7 +214,7 @@ const legInfo = (leg, from, to, each) => ({ tn: leg.tn || leg.t, t: leg.t, m: le
 
 const legTip = (i, pics) => {
   const p = (pics || [])[0];
-  return `${p ? `<img class="tt" src="${p}" alt="">` : ""}<b>${i.tn}</b><br>${i.route}<br>${i.t} · ${dur(i.m)}${i.each ? " each way" : ""}<br>${i.tc != null ? money(i.tc) + " (est.)" : "cost n/a"}<br><i>Click for details and pictures</i>`;
+  return `${p ? `<img class="tt" src="${p}" alt="" onerror="this.remove()">` : ""}<b>${i.tn}</b><br>${i.route}<br>${i.t} · ${dur(i.m)}${i.each ? " each way" : ""}<br>${i.tc != null ? money(i.tc) + " (est.)" : "cost n/a"}<br><i>Click for details and pictures</i>`;
 };
 
 function legCard(i, pics, gurl) {
@@ -240,7 +256,8 @@ async function upgradeRoute(poly, a, b, at) {
 function drawLeg(a, b, { dashed = false, rk = null, pics = [], each = false } = {}) {
   const info = legInfo(a, a.c, b.c, each);
   const key = rk || (a.c + ">" + b.c);
-  const known = J.rail[key] || J.fallbacks[key];
+  const rail = J.rail[key];
+  const known = rail || J.fallbacks[key];
   // A stop carries its onward mode (t); a day trip carries its own.
   const mode = dashed ? b.t : a.t;
   const poly = L.polyline(known || [a.ll, b.ll], {
@@ -250,7 +267,8 @@ function drawLeg(a, b, { dashed = false, rk = null, pics = [], each = false } = 
     dashArray: dashed ? "8 8" : null,
   }).addTo(map);
   attach(poly, info, pics, gm(a, b));
-  if (!known) upgradeRoute(poly, a, b, gen);
+  // Only a hand-drawn rail shape is final; a fallback is replaced by the real road.
+  if (!rail) upgradeRoute(poly, a, b, gen);
   return poly;
 }
 
@@ -271,9 +289,9 @@ function mountJourney(id) {
   const layers = {};
   for (const name of J.baseLayers) {
     const def = TILES[name];
-    layers[name] = L.tileLayer(def.url, def.options);
+    layers[def.name] = L.tileLayer(def.url, def.options);
   }
-  layers[J.defaultBase].addTo(map);
+  layers[TILES[J.defaultBase].name].addTo(map);
   L.control.layers(layers, null, { position: "topright" }).addTo(map);
 
   const all = J.stops.concat(J.trips);
@@ -377,9 +395,6 @@ function bootJourney() {
   if (stored && JOURNEYS[stored]) return stored;
   return "japan";
 }
-
-initToggle();
-setJourney(bootJourney());
 
 initToggle();
 setJourney(bootJourney());
