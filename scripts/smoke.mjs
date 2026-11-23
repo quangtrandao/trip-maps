@@ -202,9 +202,39 @@ async function testMount(b) {
   await b.clearInitScripts();
 }
 
+async function testLegs(b) {
+  await b.navigate("/?trip=china");
+  await b.sleep(1500);
+  const chinaPaths = await b.evalJs("document.querySelectorAll('path.leaflet-interactive').length");
+  assert(chinaPaths === 4, `china: 4 day-trip paths (got ${chinaPaths})`);
+  const chinaStrokes = await b.evalJs("[...new Set([...document.querySelectorAll('path.leaflet-interactive')].map(p => p.getAttribute('stroke')))]");
+  const chinaColours = ["#d6336c", "#7048e8", "#1c7ed6", "#f59e0b", "#2f9e44", "#e8590c"];
+  assert(chinaStrokes.every(c => chinaColours.includes(c)), `china: every path uses a journey colour (${chinaStrokes.join(",")})`);
+
+  await b.navigate("/?trip=japan");
+  await b.sleep(1500);
+  const japanPaths = await b.evalJs("document.querySelectorAll('path.leaflet-interactive').length");
+  assert(japanPaths === 8, `japan: 4 main legs + 4 day trips (got ${japanPaths})`);
+  const dashed = await b.evalJs("[...document.querySelectorAll('path.leaflet-interactive')].filter(p => p.getAttribute('stroke-dasharray')).length");
+  assert(dashed === 4, `japan: 4 dashed day-trip paths (got ${dashed})`);
+  const japanStrokes = await b.evalJs("[...new Set([...document.querySelectorAll('path.leaflet-interactive')].map(p => p.getAttribute('stroke')))]");
+  const japanColours = ["#d6336c", "#7048e8", "#1c7ed6", "#2f9e44", "#e8590c"];
+  assert(japanStrokes.every(c => japanColours.includes(c)), `japan: every path uses a journey colour (${japanStrokes.join(",")})`);
+
+  await b.evalJs("document.querySelector('path.leaflet-interactive').dispatchEvent(new MouseEvent('mouseover',{bubbles:true}))");
+  const tipReady = await b.waitFor("!!document.querySelector('.leaflet-tooltip.leg')", 5000);
+  assert(tipReady, "leg tooltip opens on hover");
+  const tipText = await b.evalJs("document.querySelector('.leaflet-tooltip.leg').textContent");
+  assert(tipText.includes("Click for details and pictures"), "leg tooltip invites the popup");
+  const tipPic = await b.evalJs("document.querySelector('.leaflet-tooltip.leg img.tt')?.getAttribute('src') || ''");
+  assert(tipPic.endsWith("img/gero-onsen-1.jpg"), `leg tooltip shows the destination photo (got ${tipPic})`);
+  assert(b.exceptions.length === 0, `no page exceptions while drawing legs (${b.exceptions.join(" | ")})`);
+}
+
 async function main() {
   await withBrowser(async (b) => {
     await testMount(b);
+    await testLegs(b);
   });
   const passed = results.filter((r) => r.ok).length;
   console.log(`\nsmoke: ${passed}/${results.length} checks passed`);

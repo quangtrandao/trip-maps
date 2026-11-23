@@ -125,6 +125,7 @@ japan:{
 const markers = new Map();   // city -> L.marker for the current journey
 let map = null;              // current Leaflet map instance
 let J = null;                // current journey
+let currentId = null;        // id of the current journey
 let gen = 0;                 // bumped on every mount; stale async work is dropped
 
 const money = v => J.currency.symbol + Math.round(v).toLocaleString(J.currency.locale);
@@ -193,12 +194,73 @@ function pickJourneyFromUrl() {
 
 const stayLabel = s => (J.periods && J.periods[s.c]) ? J.periods[s.c] : `${s.n} night${s.n > 1 ? "s" : ""} (base)`;
 
+const legInfo = (leg, from, to, each) => ({ tn: leg.tn || leg.t, t: leg.t, m: leg.m, tc: leg.tc, route: from + " → " + to, each });
+
+const legTip = (i, pics) => {
+  const p = (pics || [])[0];
+  return `${p ? `<img class="tt" src="${p}" alt="">` : ""}<b>${i.tn}</b><br>${i.route}<br>${i.t} · ${dur(i.m)}${i.each ? " each way" : ""}<br>${i.tc != null ? money(i.tc) + " (est.)" : "cost n/a"}<br><i>Click for details and pictures</i>`;
+};
+
+function legCard(i, pics, gurl) {
+  const d = document.createElement("div");
+  d.className = "pop";
+  const list = pics || [];
+  d.innerHTML = carHTML(list) + `<h3>${i.tn}</h3><div class="rg">${i.route}</div><dl><dt>Type</dt><dd>${i.t}</dd><dt>Time</dt><dd>${dur(i.m)}${i.each ? " each way" : ""}</dd><dt>Cost</dt><dd>${i.tc != null ? money(i.tc) + " (est.)" : "n/a"}</dd></dl><a href="${gurl}" target="_blank" rel="noopener">Google Maps</a>`;
+  wireCar(d, list);
+  return d;
+}
+
+function attach(poly, info, pics, gurl) {
+  poly.bindTooltip(() => legTip(info, pics), { sticky: true, className: "leg" });
+  poly.bindPopup(() => legCard(info, pics, gurl), { maxWidth: 280 });
+  hov(poly);
+}
+
+function routePoints(a, b, rk) {
+  const key = rk || (a.c + ">" + b.c);
+  return J.rail[key] || J.fallbacks[key] || [a.ll, b.ll];
+}
+
+async function upgradeRoute(poly, a, b, at) {
+  const key = `osrm:${currentId}:${a.c}>${b.c}`;
+  let pts = null;
+  try { const cached = localStorage.getItem(key); if (cached) pts = JSON.parse(cached); } catch (_) { /* storage unavailable */ }
+  if (!pts) {
+    try {
+      const r = await fetch(`https://router.project-osrm.org/route/v1/driving/${a.ll[1]},${a.ll[0]};${b.ll[1]},${b.ll[0]}?overview=full&geometries=geojson`);
+      const j = await r.json();
+      pts = j.routes[0].geometry.coordinates.map(p => [p[1], p[0]]);
+      try { localStorage.setItem(key, JSON.stringify(pts)); } catch (_) { /* storage unavailable */ }
+    } catch (_) { return; }
+  }
+  if (at !== gen || !map || !poly._map) return;
+  poly.setLatLngs(pts);
+}
+
+function drawLeg(a, b, { dashed = false, rk = null, pics = [], each = false } = {}) {
+  const info = legInfo(a, a.c, b.c, each);
+  const key = rk || (a.c + ">" + b.c);
+  const known = J.rail[key] || J.fallbacks[key];
+  // A stop carries its onward mode (t); a day trip carries its own.
+  const mode = dashed ? b.t : a.t;
+  const poly = L.polyline(known || [a.ll, b.ll], {
+    color: J.colors[mode] || "#888",
+    weight: dashed ? 4 : 6,
+    opacity: .9,
+    dashArray: dashed ? "8 8" : null,
+  }).addTo(map);
+  attach(poly, info, pics, gm(a, b));
+  if (!known) upgradeRoute(poly, a, b, gen);
+  return poly;
+}
+
 function mountJourney(id) {
   if (!JOURNEYS[id]) return null;
   gen++;
   markers.clear();
   if (map) { map.remove(); map = null; }
   J = JOURNEYS[id];
+  currentId = id;
 
   document.title = J.title;
   document.getElementById("title").textContent = J.title;
@@ -264,6 +326,18 @@ function mountJourney(id) {
 
   const pts = J.map.fitInclude === "stops+trips" ? all : J.stops;
   map.fitBounds(L.latLngBounds(pts.map(s => s.ll)).pad(.15));
+
+  const at = gen;
+  for (let i = 0; i < J.stops.length - 1; i++) {
+    drawLeg(J.stops[i], J.stops[i + 1], { pics: J.stops[i + 1].pics });
+  }
+  for (const t of J.trips) {
+    const base = J.stops.find(s => s.c === t.base);
+    if (!base) continue;
+    drawLeg(base, t, { dashed: true, rk: t.rk || null, pics: t.pics, each: true });
+  }
+  void at;
+
   return map;
 }
 
