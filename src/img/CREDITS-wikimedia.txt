@@ -1,0 +1,31 @@
+Photo credits
+
+All photos are hotlinked from Wikimedia Commons via Special:FilePath (?width=1000),
+not stored in this repo. Each file's Commons page lists its author and licence.
+
+Guangzhou
+  Canton Tower 20241027 (cropped).jpg
+  Chen Clan Ancestral Hall 2025.06 02.jpg
+  ShamianIsland.JPG
+
+Foshan & Shunde
+  Foshan Ancestral Temple 39545-Foshan (49042476728).jpg
+  Foshan Ancestral Temple 39539-Foshan (49042475643).jpg
+  Xiqiaoshan2.jpg
+
+Shenzhen
+  Commercial area of futian to east2020.jpg
+  Huaqiangbei&Shennan Cross2021.jpg
+  WINDOWS OF THE WORLD SHENZHEN (13).jpg
+
+Zhaoqing
+  Zhaoqing Qixing Yan 2013.10.13 11-56-53.jpg
+  七星岩远眺.JPG
+  Zhaoqing Qixing Yan 2013.10.13 12-13-53.jpg
+
+Hong Kong
+  High West and Victoria Peak from Victoria Gap (crop1).jpg
+  Victoria Harbour (Hong Kong).jpg
+  Tsim Sha Tsui Ferry Pier.jpg
+
+Resolve any file at: https://commons.wikimedia.org/wiki/File:<name>

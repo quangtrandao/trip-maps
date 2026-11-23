@@ -1,0 +1,88 @@
+﻿<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Trip Maps</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+</head><body>
+<div id="map" style="height:100vh;margin:0"></div>
+<script>
+//==DATA-START==
+// Journey data. Regenerate a journey from its Notion database, then run
+// `node scripts/check.mjs`. To add a destination, add one JOURNEYS entry.
+const CK="cb1_4dt6_1_b5fc5b5204dd3e9d89b2b612"; // CARTO key: visible in page source
+const OSM="© OpenStreetMap contributors",CA=OSM+' © <a href="https://carto.com/attributions">CARTO</a>';
+const wf=n=>"https://commons.wikimedia.org/wiki/Special:FilePath/"+encodeURIComponent(n)+"?width=1000";
+const TILES={
+ voyager:{url:"https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png?key="+CK,options:{subdomains:"abcd",maxZoom:19,attribution:CA}},
+ positron:{url:"https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png?key="+CK,options:{subdomains:"abcd",maxZoom:19,attribution:CA}},
+ gsi:{url:"https://cyberjapandata.gsi.go.jp/xyz/english/{z}/{x}/{y}.png",options:{minZoom:5,maxNativeZoom:11,maxZoom:18,attribution:'<a href="https://maps.gsi.go.jp/development/ichiran.html">GSI Japan</a>'}},
+ osm:{url:"https://tile.openstreetmap.org/{z}/{x}/{y}.png",options:{maxZoom:18,attribution:OSM}}
+};
+const JOURNEYS={
+china:{
+ title:"Guangzhou 2",sub:"",label:"🇨🇳 China",
+ notionUrl:"https://app.notion.com/p/PLACEHOLDER-GUANGZHOU2",
+ currency:{symbol:"¥",locale:"en-US"},
+ map:{center:[22.9,113.6],zoom:8,fitInclude:"stops+trips"},
+ defaultBase:"voyager",baseLayers:["voyager","positron","osm"],
+ staySelector:"stops+trips",
+ stops:[
+{hd:0,pics:[wf("Canton Tower 20241027 (cropped).jpg"),wf("Chen Clan Ancestral Hall 2025.06 02.jpg"),wf("ShamianIsland.JPG")],c:"Guangzhou",r:"Guangdong (PRD)",ll:[23.1291,113.2644],n:6,acc:"",ac:4200,act:"Day 1: arrive, easy evening at Zhujiang New Town / Canton Tower. Day 2: Old Town — dim sum, Chen Clan Ancestral Hall, Shamian Island, Yongqing Fang, Beijing Road. Day 7: Yuexiu Park / Sun Yat-sen Memorial Hall, last shopping, depart.",b:12000,t:"",m:0}
+ ],
+ trips:[
+{pics:[wf("Foshan Ancestral Temple 39545-Foshan (49042476728).jpg"),wf("Foshan Ancestral Temple 39539-Foshan (49042475643).jpg"),wf("Xiqiaoshan2.jpg")],tn:"Guangzhou Metro Line 1 / Guangfo Line to Foshan",tc:15,c:"Foshan & Shunde",base:"Guangzhou",r:"Guangdong (PRD)",ll:[23.0218,113.1219],act:"Day 3: Foshan Ancestral Temple, Lingnan Tiandi, Ip Man / Wong Fei-hung heritage; Shunde for Cantonese food.",b:600,t:"Metro",m:40,rk:"Guangzhou>Foshan & Shunde"},
+{pics:[wf("Commercial area of futian to east2020.jpg"),wf("Huaqiangbei&Shennan Cross2021.jpg"),wf("WINDOWS OF THE WORLD SHENZHEN (13).jpg")],tn:"G-series HSR to Shenzhen North",tc:150,c:"Shenzhen",base:"Guangzhou",r:"Guangdong (PRD)",ll:[22.5431,114.0579],act:"Day 4: Huaqiangbei electronics, OCT / Window of the World, Shenzhen Bay skyline.",b:900,t:"High-speed rail",m:35},
+{pics:[wf("Zhaoqing Qixing Yan 2013.10.13 11-56-53.jpg"),wf("七星岩远眺.JPG"),wf("Zhaoqing Qixing Yan 2013.10.13 12-13-53.jpg")],tn:"Intercity / HSR to Zhaoqing East",tc:60,c:"Zhaoqing",base:"Guangzhou",r:"Guangdong (PRD)",ll:[23.047,112.4653],act:"Day 5: Seven Star Crags (七星岩) lake, Dinghu Mountain (鼎湖山). Weather-buffer day.",b:600,t:"Intercity",m:90},
+{pics:[wf("High West and Victoria Peak from Victoria Gap (crop1).jpg"),wf("Victoria Harbour (Hong Kong).jpg"),wf("Tsim Sha Tsui Ferry Pier.jpg")],tn:"Cross-border HSR to Hong Kong West Kowloon",tc:430,c:"Hong Kong",base:"Guangzhou",r:"Hong Kong",ll:[22.3049,114.166],act:"Day 6: Star Ferry, Victoria Peak, Tsim Sha Tsui promenade, Central. Separate immigration required for Hong Kong; return the same night.",b:1200,t:"Cross-border HSR",m:60}
+ ],
+ colors:{"High-speed rail":"#d6336c","Intercity":"#7048e8","Metro":"#1c7ed6","Cross-border HSR":"#f59e0b","Bus":"#2f9e44","Car":"#e8590c"},
+ // Rail legs follow station-to-station chains (approximate track shape, not survey-grade).
+ rail:{
+"Guangzhou>Shenzhen":[[23.0058,113.2705],[22.916,113.339],[22.8144,113.5053],[22.749,113.778],[22.61,114.0295],[22.5431,114.0579]],
+"Guangzhou>Hong Kong":[[23.0058,113.2705],[22.749,113.778],[22.61,114.0295],[22.5313,114.0542],[22.3049,114.166]],
+"Guangzhou>Zhaoqing":[[23.1291,113.2644],[23.0322,113.1046],[23.047,112.4653]],
+"Guangzhou>Foshan & Shunde":[[23.1291,113.2644],[23.0218,113.1219]]
+ },
+ fallbacks:{}
+},
+japan:{
+ title:"Hokuriku 2",sub:"November 2027",label:"🇯🇵 Japan",
+ notionUrl:"https://app.notion.com/p/a559ab993b314d3fb9c5aa452c4c5fcd",
+ currency:{symbol:"¥",locale:"en-US"},
+ map:{center:[35.9,137.0],zoom:7,fitInclude:"stops"},
+ defaultBase:"voyager",baseLayers:["voyager","positron","gsi","osm"],
+ staySelector:"stops",
+ periods:{"Osaka":"Nov 1–3","Gero Onsen":"Nov 3","Takayama":"Nov 4–7","Matsumoto":"Nov 7–10","Tokyo":"Nov 10–13"},
+ stops:[
+{hd:1,hu:"https://maps.app.goo.gl/UAEiyHrEUiGCZ4688",pics:["img/osaka-1.jpg","img/osaka-2.jpg","img/osaka-3.jpg","img/osaka-food-1.jpg","img/osaka-food-2.jpg"],tn:"JR Tokaido Line + Hida Limited Express",tc:6500,c:"Osaka",r:"Kansai",ll:[34.69,135.5],n:2,acc:"Candeo Hotel",ac:30000,act:"Day 1: arrive, easy day. Day 2: Kyoto day trip (one area)",b:60000,t:"Limited Express",m:230},
+{hd:0,hu:"https://maps.app.goo.gl/ifpZwhm2fu9zLDhA8",pics:["img/gero-onsen-1.jpg","img/gero-onsen-2.jpg","img/gero-onsen-3.jpg","img/gero-onsen-food-1.jpg","img/gero-onsen-food-2.jpg"],tn:"Hida Limited Express",tc:2500,c:"Gero Onsen",r:"Chubu / Nagano",ll:[35.8,137.24],n:1,acc:"Yunoshimakan",ac:30000,act:"Day 3: Osaka to Gero Onsen (direct Hida train if the schedule suits, else change at Nagoya); onsen evening",b:40000,t:"Limited Express",m:50},
+{hd:0,hu:"https://maps.app.goo.gl/FF51CxCNnCXtoCX98",pics:["img/takayama-1.jpg","img/takayama-2.jpg","img/takayama-3.jpg","img/takayama-food-1.jpg","img/takayama-food-2.jpg"],tn:"Nohi Bus (direct)",tc:4000,c:"Takayama",r:"Chubu / Nagano",ll:[36.14,137.25],n:3,acc:"Amaneki Hotel",ac:45000,act:"Day 4: afternoon in Takayama. Day 5: old town, morning market, Hida Folk Village. Day 6: Shinhotaka Ropeway day trip",b:90000,t:"Bus",m:150},
+{hd:0,hu:"https://maps.app.goo.gl/1JtSnRzV7bpuV8669",pics:["img/matsumoto-1.jpg","img/matsumoto-2.jpg","img/matsumoto-3.jpg","img/matsumoto-food-1.jpg","img/matsumoto-food-2.jpg"],tn:"Azusa Limited Express",tc:6730,c:"Matsumoto",r:"Chubu / Nagano",ll:[36.24,137.97],n:3,acc:"Dormy inn matsumoto",ac:57600,act:"Day 7: direct bus from Takayama. Day 8: Kamikochi day trip. Day 9: Matsumoto Castle, relaxed day or weather buffer",b:70000,t:"Limited Express",m:165},
+{hd:0,hu:"https://maps.app.goo.gl/TN55Am6hymjjvMzi9",pics:["img/tokyo-1.jpg","img/tokyo-2.jpg","img/tokyo-3.jpg","img/tokyo-food-1.jpg","img/tokyo-food-2.jpg"],c:"Tokyo",r:"Kanto",ll:[35.68,139.69],n:3,acc:"JR Blossom Hotel",ac:48000,act:"Day 10: Azusa train from Matsumoto. Days 11-12: Tokyo. Day 13: fly home from Tokyo",b:120000,t:"",m:0}
+ ],
+ trips:[
+{pics:["img/kyoto-1.jpg","img/kyoto-2.jpg","img/kyoto-3.jpg","img/kyoto-food-1.jpg","img/kyoto-food-2.jpg"],tn:"JR Special Rapid",tc:580,c:"Kyoto",base:"Osaka",r:"Kansai",ll:[35.01,135.77],act:"Day 2: Kyoto, focus on one area",b:15000,t:"Local train",m:30,rk:"Osaka>Kyoto"},
+{pics:["img/shinhotaka-ropeway-1.jpg","img/shinhotaka-ropeway-2.jpg","img/shinhotaka-ropeway-3.jpg","img/shinhotaka-ropeway-food-1.jpg","img/shinhotaka-ropeway-food-2.jpg"],tn:"Nohi Bus to Shinhotaka",tc:2500,c:"Shinhotaka Ropeway",base:"Takayama",r:"Chubu / Nagano",ll:[36.28,137.55],act:"Day 6: Shinhotaka Ropeway; allow time at the ropeway",b:15000,t:"Bus",m:90},
+{pics:["img/kamikochi-1.jpg","img/kamikochi-2.jpg","img/kamikochi-3.jpg","img/kamikochi-food-1.jpg","img/kamikochi-food-2.jpg"],tn:"Train + Alpico bus to Kamikochi",tc:3000,c:"Kamikochi",base:"Matsumoto",r:"Chubu / Nagano",ll:[36.25,137.64],act:"Day 8: Kamikochi day trip",b:15000,t:"Bus",m:90},
+{pics:["img/nagano-1.jpg","img/nagano-2.jpg","img/nagano-3.jpg","img/nagano-food-1.jpg","img/nagano-food-2.jpg"],tn:"Local train",tc:null,c:"Nagano",base:"Matsumoto",r:"Chubu / Nagano",ll:[36.38,138.13],act:"",b:0,t:"Local train",m:0}
+ ],
+ colors:{"Shinkansen":"#d6336c","Limited Express":"#7048e8","Local train":"#1c7ed6","Bus":"#2f9e44","Car":"#e8590c"},
+ // Rail legs follow station-to-station chains (approximate track shape, not survey-grade).
+ rail:{
+"Osaka>Gero Onsen":[[34.7025,135.4959],[34.7335,135.5002],[34.9858,135.7588],[35.0033,135.8643],[35.123,136.097],[35.2761,136.2536],[35.315,136.2902],[35.3667,136.6155],[35.4097,136.7568],[35.4399,137.0104],[35.5415,137.147],[35.7439,137.1989],[35.8059,137.2397]],
+"Gero Onsen>Takayama":[[35.8059,137.2397],[35.8764,137.24],[35.9577,137.235],[36.05,137.25],[36.1411,137.2531]],
+"Matsumoto>Tokyo":[[36.23,137.965],[36.1118,137.954],[36.0553,138.0477],[35.9926,138.1585],[35.8571,138.3544],[35.7077,138.442],[35.6667,138.5686],[35.6118,138.9441],[35.6419,139.2822],[35.69,139.7006]],
+"Osaka>Kyoto":[[34.7025,135.4959],[34.7335,135.5002],[34.9858,135.7588]]
+ },
+ fallbacks:{"Takayama>Matsumoto":[[36.1411,137.2531],[36.19,137.55],[36.23,137.965]]}
+}
+};
+//==DATA-END==
+</script>
+<script>
+// App logic is added in the following tasks.
+</script>
+</body></html>
+
+
