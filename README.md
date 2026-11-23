@@ -43,8 +43,14 @@ npx serve src
 
 ## Deploy
 
-Served by Vercel from `src/`. The old `china-trip` and `japan-trip` projects
-308-redirect here with their trip pre-selected (`?trip=china`, `?trip=japan`).
+Served by Vercel from `src/` at **https://trip-maps-theta.vercel.app**
+(project `trip-maps`, repo `quangtrandao/trip-maps`, production branch `main`;
+pushing to `main` redeploys).
+
+The old `china-trip-map-omega` and `japan-trip-map-olive` projects 308-redirect
+here with their trip pre-selected (`?trip=china`, `?trip=japan`). The China
+project is not Git-linked, so its redirect lives in a direct deployment; to
+change it, edit the redirect and redeploy that project.
 
 ## Notes
 
