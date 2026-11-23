@@ -231,10 +231,55 @@ async function testLegs(b) {
   assert(b.exceptions.length === 0, `no page exceptions while drawing legs (${b.exceptions.join(" | ")})`);
 }
 
+async function testToggle(b) {
+  await b.navigate("/?trip=japan");
+  assert(await b.waitFor("document.querySelectorAll('#journeys button').length === 2", 5000), "toggle: one button per journey");
+  assert(await b.click("#journeys button[data-journey='china']"), "toggle: china button exists");
+  assert(await b.waitFor("document.title === 'Guangzhou 2'", 5000), "toggle: clicking china switches the map");
+  assert((await b.evalJs("location.search")) === "?trip=china", "toggle: url mirrors the journey");
+  assert((await b.evalJs("document.querySelectorAll('.leaflet-marker-icon .stop').length")) === 5, "toggle: china markers after switch");
+  assert((await b.evalJs("document.getElementById('stats').textContent")).includes("6 nights"), "toggle: china stats after switch");
+
+  for (const id of ["japan", "china", "japan"]) {
+    await b.evalJs(`document.querySelector("#journeys button[data-journey='${id}']").click()`);
+    await b.sleep(400);
+  }
+  assert((await b.evalJs("document.querySelectorAll('.leaflet-marker-icon .stop').length")) === 9, "toggle: japan markers after repeated switching");
+  assert((await b.evalJs("document.querySelectorAll('#stay-sel option').length")) === 5, "toggle: stay options never duplicate");
+  assert((await b.evalJs("document.querySelectorAll('.leaflet-control-layers').length")) === 1, "toggle: one layer control");
+  assert((await b.evalJs("document.querySelectorAll('.legend').length")) === 1, "toggle: one legend");
+  assert((await b.evalJs("localStorage.getItem('tripmap_journey')")) === "japan", "toggle: last choice stored");
+
+  await b.navigate("/?trip=china");
+  assert(await b.waitFor("document.title === 'Guangzhou 2'", 5000), "url wins over stored journey");
+
+  await b.navigate("/");
+  await b.evalJs("localStorage.clear()");
+  await b.navigate("/?trip=nope");
+  assert(await b.waitFor("document.title === 'Hokuriku 2'", 5000), "unknown trip falls back to japan");
+  assert((await b.evalJs("location.search")) === "?trip=japan", "unknown trip is replaced in the url");
+
+  await b.navigate("/?trip=china");
+  await b.navigate("/");
+  assert(await b.waitFor("document.title === 'Guangzhou 2'", 5000), "no query string uses the stored journey");
+
+  await b.addInitScript("const f = window.fetch; window.fetch = (...a) => new Promise(r => setTimeout(() => r(f(...a)), 3000));");
+  await b.navigate("/?trip=japan");
+  await b.sleep(500);
+  await b.evalJs("document.querySelector(\"#journeys button[data-journey='china']\").click()");
+  await b.sleep(4000);
+  const pathsAfter = await b.evalJs("document.querySelectorAll('path.leaflet-interactive').length");
+  const greensAfter = await b.evalJs("[...document.querySelectorAll('path.leaflet-interactive')].filter(p => p.getAttribute('stroke') === '#2f9e44').length");
+  assert(pathsAfter === 4 && greensAfter === 0, `switch during slow route lookups keeps china's lines (paths ${pathsAfter}, japan-green ${greensAfter})`);
+  await b.clearInitScripts();
+  assert(b.exceptions.length === 0, `no page exceptions while toggling (${b.exceptions.join(" | ")})`);
+}
+
 async function main() {
   await withBrowser(async (b) => {
     await testMount(b);
     await testLegs(b);
+    await testToggle(b);
   });
   const passed = results.filter((r) => r.ok).length;
   console.log(`\nsmoke: ${passed}/${results.length} checks passed`);

@@ -341,7 +341,48 @@ function mountJourney(id) {
   return map;
 }
 
-mountJourney(pickJourneyFromUrl() || "japan");
+function readStoredJourney() {
+  try { return localStorage.getItem("tripmap_journey"); } catch (_) { return null; }
+}
+
+function setJourney(id, { writeUrl = true } = {}) {
+  if (!JOURNEYS[id]) return;
+  try { localStorage.setItem("tripmap_journey", id); } catch (_) { /* storage unavailable */ }
+  mountJourney(id);
+  for (const btn of document.querySelectorAll("#journeys button")) {
+    btn.setAttribute("aria-pressed", String(btn.dataset.journey === id));
+  }
+  if (writeUrl) history.replaceState(null, "", "?trip=" + id);
+}
+
+function initToggle() {
+  const host = document.getElementById("journeys");
+  host.innerHTML = "";
+  for (const id of journeyIds()) {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "jbtn";
+    btn.dataset.journey = id;
+    btn.textContent = JOURNEYS[id].label;
+    btn.setAttribute("aria-pressed", "false");
+    btn.addEventListener("click", () => setJourney(id));
+    host.appendChild(btn);
+  }
+}
+
+function bootJourney() {
+  const fromUrl = pickJourneyFromUrl();
+  const stored = readStoredJourney();
+  if (fromUrl) return fromUrl;
+  if (stored && JOURNEYS[stored]) return stored;
+  return "japan";
+}
+
+initToggle();
+setJourney(bootJourney());
+
+initToggle();
+setJourney(bootJourney());
 })();
 </script>
 </body></html>
