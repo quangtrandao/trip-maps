@@ -5,7 +5,7 @@ import { resolve, dirname } from "node:path";
 
 const root = resolve(import.meta.dirname, "..");
 const srcDir = resolve(root, "src");
-const htmlPath = resolve(srcDir, "index.html");
+const htmlPath = process.argv[2] ? resolve(process.argv[2]) : resolve(srcDir, "index.html");
 
 const problems = [];
 const fail = (msg) => problems.push(msg);
@@ -151,6 +151,21 @@ for (const [id, j] of Object.entries(JOURNEYS || {})) {
 if (problems.length) {
   for (const p of problems) console.error(`FAIL ${p}`);
   console.error(`\n${problems.length} problem(s)`);
+  process.exit(1);
+}
+
+// Sweep: the renderer must be journey-agnostic. Journey-specific globals from
+// the two original pages may not survive outside the DATA block, and the toggle
+// must be generated rather than hardcoded in the markup.
+const appPart = html.replace(/\/\/==DATA-START==[\s\S]*?\/\/==DATA-END==/, "");
+const LEFTOVERS = ["STOPS", "TRIPS", "COL", "RAIL", "ROAD_FALLBACK", "PIC", "PERIODS", "cny", "yen", "NOTION_URL"];
+const leftovers = LEFTOVERS.filter((name) => new RegExp(`(^|[^\\w$.])${name}(?![\\w$])`).test(appPart));
+if (leftovers.length) {
+  for (const name of leftovers) console.error(`FAIL renderer still references journey-specific global "${name}"`);
+  process.exit(1);
+}
+if (/data-journey=/.test(html)) {
+  console.error('FAIL toggle must be generated from JOURNEYS, not hardcoded (found literal data-journey= in src/index.html)');
   process.exit(1);
 }
 
