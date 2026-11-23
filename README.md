@@ -12,18 +12,33 @@ block in `src/index.html`.
 
 ## Structure
 
-- `src/index.html` — the whole app: styles, `JOURNEYS` data registry, renderer
+- `src/index.html` — the whole app: styles, data registries, renderer
 - `src/img/` — Japan's photos (committed). China's photos are hotlinked from
   Wikimedia Commons (`wf()` in the data block), so they are not in the repo.
 - `scripts/check.mjs` — validates every journey's data
 - `scripts/smoke.mjs` — headless-browser checks for rendering and the toggle
-- `docs/superpowers/` — design and implementation plan
+- `docs/superpowers/` — design and implementation plans
+
+## Bilingual and money
+
+- Every user-visible string is English with Vietnamese beneath it (`.vi`).
+  Journey content carries `titleVi`, `subVi`, `labelVi`, `actVi`, `tnVi`,
+  `cVi`, `accVi` and `periodsVi`; UI chrome comes from the `UI` table.
+- Prices show the trip currency plus a VND equivalent, from the fixed `RATES`
+  table (VND per unit) dated `RATES.asOf` and printed in the legend footer.
+  `CN¥` and `JP¥` are distinct symbols — both currencies use `¥`.
+- `FAMILIES` holds the one palette shared by all trips (high-speed, express,
+  regional, urban, bus/road); `MODES` maps each transport name to a family, so
+  a colour means the same thing everywhere and the legend lists families.
+  Day trips keep their transport colour and are drawn dashed.
 
 ## Adding a destination
 
 1. Add one entry to `JOURNEYS` in `src/index.html` with:
-   `title, sub, label, notionUrl, currency{symbol,locale}, map{center,zoom,fitInclude}, defaultBase, baseLayers[], staySelector, stops[], trips[], colors{}, rail{}, fallbacks{}` (and `periods{}` when `staySelector` is `"stops"`).
-2. Run `node scripts/check.mjs`.
+   `title, titleVi, sub, subVi, label, labelVi, notionUrl, currency{code,symbol,locale}, map{center,zoom,fitInclude}, defaultBase, baseLayers[], staySelector, stops[], trips[], rail{}, fallbacks{}` (and `periods{}`/`periodsVi{}` when `staySelector` is `"stops"`).
+   Every stop and day trip needs `actVi`, `tnVi` when it has `tn`, and `cVi`
+   for Chinese city names. Transport `t` must exist in `MODES`.
+2. Run `node scripts/check.mjs` and `node scripts/smoke.mjs`.
 3. Commit and push — the toggle builds itself from the registry keys.
 
 ## Check and test

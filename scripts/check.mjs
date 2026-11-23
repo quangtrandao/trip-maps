@@ -26,20 +26,37 @@ if (!marker) {
 
 let registry;
 try {
-  registry = new Function(`${marker[1]}\nreturn { TILES, JOURNEYS };`)();
+  registry = new Function(`${marker[1]}\nreturn { TILES, RATES, FAMILIES, MODES, UI, JOURNEYS };`)();
 } catch (e) {
   console.error(`FAIL src/index.html: data block did not evaluate: ${e.message}`);
   process.exit(1);
 }
 
-const { TILES, JOURNEYS } = registry;
+const { TILES, RATES, FAMILIES, MODES, UI, JOURNEYS } = registry;
 const isObj = (v) => v !== null && typeof v === "object" && !Array.isArray(v);
 const isNum = (v) => typeof v === "number" && Number.isFinite(v);
 
 if (!isObj(TILES) || Object.keys(TILES).length === 0) fail("TILES is missing or empty");
 if (!isObj(JOURNEYS) || Object.keys(JOURNEYS).length === 0) fail("JOURNEYS is missing or empty");
 
-const REQUIRED = ["title", "label", "notionUrl", "currency", "map", "defaultBase", "baseLayers", "staySelector", "stops", "trips", "rail", "fallbacks", "colors"];
+// Shared currency and colour registries.
+if (!isObj(RATES) || typeof RATES.asOf !== "string") fail("RATES must be an object with an asOf date");
+if (!isObj(FAMILIES) || !Object.keys(FAMILIES).length) fail("FAMILIES is missing or empty");
+for (const [key, f] of Object.entries(FAMILIES || {})) {
+  if (!f.en || !f.vi) fail(`FAMILIES.${key}: needs en and vi labels`);
+  if (!/^#[0-9a-f]{6}$/i.test(String(f.color))) fail(`FAMILIES.${key}: color must be a hex colour`);
+}
+if (!isObj(MODES) || !Object.keys(MODES).length) fail("MODES is missing or empty");
+for (const [name, m] of Object.entries(MODES || {})) {
+  if (!m.en || !m.vi) fail(`MODES["${name}"]: needs en and vi labels`);
+  if (!FAMILIES?.[m.family]) fail(`MODES["${name}"]: family "${m.family}" is not in FAMILIES`);
+}
+if (!isObj(UI)) fail("UI string table is missing");
+for (const key of ["stay", "do", "budget", "next", "travel", "type", "time", "cost", "eachWay", "est", "costNA", "dayTripFrom", "nights", "noPictures", "legendHint", "rates", "freeStay"]) {
+  if (!UI?.[key]?.en || !UI?.[key]?.vi) fail(`UI.${key}: needs en and vi strings`);
+}
+
+const REQUIRED = ["title", "titleVi", "sub", "subVi", "label", "labelVi", "notionUrl", "currency", "map", "defaultBase", "baseLayers", "staySelector", "stops", "trips", "rail", "fallbacks"];
 const TRIP_LEG_FIELDS = ["c", "base", "r", "ll", "pics"];
 
 const pictureOk = (p) => {
@@ -60,11 +77,16 @@ for (const [id, j] of Object.entries(JOURNEYS || {})) {
     if (!(key in j)) fail(`${at}.${key}: missing`);
   }
   if (typeof j.title !== "string" || !j.title) fail(`${at}.title: must be a non-empty string`);
+  if (typeof j.titleVi !== "string" || !j.titleVi) fail(`${at}.titleVi: must be a non-empty string`);
   if (typeof j.label !== "string" || !j.label) fail(`${at}.label: must be a non-empty string`);
+  if (typeof j.labelVi !== "string" || !j.labelVi) fail(`${at}.labelVi: must be a non-empty string`);
   if (!/^https:\/\/app\.notion\.com\//.test(String(j.notionUrl || ""))) fail(`${at}.notionUrl: must be an app.notion.com URL`);
   if (typeof j.sub !== "string") fail(`${at}.sub: must be a string (may be empty)`);
+  if (typeof j.subVi !== "string") fail(`${at}.subVi: must be a string (may be empty)`);
   if (!isObj(j.currency) || typeof j.currency.symbol !== "string" || typeof j.currency.locale !== "string") {
     fail(`${at}.currency: needs string symbol and locale`);
+  } else if (!RATES?.[j.currency.code]) {
+    fail(`${at}.currency.code: "${j.currency.code}" is not in RATES`);
   }
   if (!isObj(j.map) || !isPair(j.map.center) || !isNum(j.map.zoom)) fail(`${at}.map: needs center [lat,lng] and numeric zoom`);
   if (!["stops", "stops+trips"].includes(j.map.fitInclude)) fail(`${at}.map.fitInclude: must be "stops" or "stops+trips"`);
@@ -100,6 +122,10 @@ for (const [id, j] of Object.entries(JOURNEYS || {})) {
     if (s.t && !("tc" in (s || {}))) fail(`${sat}.tc: must be present when the stop has an onward leg`);
     if ("tc" in (s || {}) && s.tc !== null && !isNum(s.tc)) fail(`${sat}.tc: must be a number or null`);
     if ("act" in (s || {}) && typeof s.act !== "string") fail(`${sat}.act: must be a string when present`);
+    if (typeof s.actVi !== "string") fail(`${sat}.actVi: must be a string (may be empty)`);
+    if (s.t && !MODES?.[s.t]) fail(`${sat}.t: "${s.t}" is not in MODES`);
+    if (s.tn && typeof s.tnVi !== "string") fail(`${sat}.tnVi: must be a string when tn is set`);
+    if (!s.cVi && /[\u4e00-\u9fff]/.test(s.c)) fail(`${sat}.cVi: Chinese stops need a Vietnamese name`);
     for (const p of s.pics || []) if (!pictureOk(p)) fail(`${sat}.pics: cannot resolve "${p}" (not a URL, not a file under src/)`);
     if (cities.has(s.c)) fail(`${at}: duplicate city "${s.c}"`);
     cities.add(s.c);
@@ -117,6 +143,10 @@ for (const [id, j] of Object.entries(JOURNEYS || {})) {
     cities.add(t.c);
     if (t.base && !(j.stops || []).some((s) => s.c === t.base)) fail(`${tat}.base: "${t.base}" is not a stop`);
     if (t.rk && !j.rail?.[t.rk]) fail(`${tat}.rk: "${t.rk}" is not a key in rail`);
+    if (!MODES?.[t.t]) fail(`${tat}.t: "${t.t}" is not in MODES`);
+    if (typeof t.actVi !== "string") fail(`${tat}.actVi: must be a string (may be empty)`);
+    if (t.tn && typeof t.tnVi !== "string") fail(`${tat}.tnVi: must be a string when tn is set`);
+    if (!t.cVi && /[\u4e00-\u9fff]/.test(t.c)) fail(`${tat}.cVi: Chinese stops need a Vietnamese name`);
   }
 
   for (const key of Object.keys(j.rail || {})) {
@@ -135,15 +165,14 @@ for (const [id, j] of Object.entries(JOURNEYS || {})) {
     if (!cities.has(b)) fail(`${at}.fallbacks["${key}"]: "${b}" is not a city in this journey`);
   }
 
-  if (!isObj(j.colors) || !Object.keys(j.colors).length) fail(`${at}.colors: must be a non-empty object`);
-  for (const [mode, colour] of Object.entries(j.colors || {})) {
-    if (!/^#[0-9a-f]{6}$/i.test(String(colour))) fail(`${at}.colors["${mode}"]: must be a hex colour`);
-  }
-
   if (j.periods) {
     if (!isObj(j.periods)) fail(`${at}.periods: must be an object`);
     for (const city of Object.keys(j.periods)) {
       if (!cities.has(city)) fail(`${at}.periods["${city}"]: not a city in this journey`);
+    }
+    if (!isObj(j.periodsVi)) fail(`${at}.periodsVi: must be an object when periods is present`);
+    else for (const city of Object.keys(j.periods)) {
+      if (typeof j.periodsVi[city] !== "string" || !j.periodsVi[city]) fail(`${at}.periodsVi["${city}"]: missing Vietnamese label`);
     }
   }
 }

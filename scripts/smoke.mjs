@@ -1,4 +1,4 @@
-// Smoke tests for src/index.html, driven by headless Edge over the DevTools
+﻿// Smoke tests for src/index.html, driven by headless Edge over the DevTools
 // protocol. No npm dependencies: run `node scripts/smoke.mjs`.
 //
 // Requires Microsoft Edge (Chromium) and network access for the Leaflet CDN.
@@ -104,7 +104,8 @@ async function withBrowser(fn) {
       pending.get(msg.id)(msg);
       pending.delete(msg.id);
     } else if (msg.method === "Runtime.exceptionThrown") {
-      exceptions.push(msg.params?.exceptionDetails?.text || "exception");
+      const d = msg.params?.exceptionDetails;
+      exceptions.push(d?.exception?.description || d?.text || "exception");
     }
   };
   const send = (method, params = {}) =>
@@ -174,23 +175,25 @@ async function withBrowser(fn) {
 async function testMount(b) {
   await b.navigate("/?trip=china");
   assert(await b.waitFor("document.title === 'Guangzhou 2'", 5000), "china: title is Guangzhou 2");
-  assert((await b.evalJs("document.querySelector('#bar b').textContent")) === "Guangzhou 2", "china: bar title");
+  assert((await b.evalJs("document.querySelector('#bar b .en').textContent")) === "Guangzhou 2", "china: bar title (english)");
+  assert((await b.evalJs("document.querySelector('#bar b .vi').textContent")) === "Quảng Châu 2", "china: bar title (vietnamese)");
   assert((await b.evalJs("document.getElementById('sub').textContent")) === "", "china: sub line hidden");
   assert((await b.evalJs("document.querySelectorAll('.leaflet-marker-icon .stop').length")) === 5, "china: 5 markers");
   assert((await b.evalJs("document.querySelectorAll('#stay-sel option').length")) === 5, "china: 5 stay options");
   assert((await b.evalJs("document.querySelector('#stay-sel option').textContent")).startsWith("Guangzhou · 6 nights (base)"), "china: first stay option labelled");
   assert((await b.evalJs("document.getElementById('stats').textContent")).includes("6 nights"), "china: stats nights");
-  assert((await b.evalJs("document.querySelectorAll('.legend div i').length")) === 4, "china: legend lists 4 modes");
+  assert((await b.evalJs("document.querySelectorAll('.legend div i').length")) === 3, "china: legend lists 3 families");
 
   await b.navigate("/?trip=japan");
   assert(await b.waitFor("document.title === 'Hokuriku 2'", 5000), "japan: title is Hokuriku 2");
-  assert((await b.evalJs("document.getElementById('sub').textContent")) === "November 2027", "japan: sub line shows dates");
+  assert((await b.evalJs("document.querySelector('#bar #sub .en').textContent")) === "November 2027", "japan: sub line shows dates");
+  assert((await b.evalJs("document.querySelector('#bar #sub .vi').textContent")) === "Tháng 11/2027", "japan: sub line in vietnamese");
   assert((await b.evalJs("document.querySelectorAll('.leaflet-marker-icon .stop').length")) === 9, "japan: 9 markers");
   assert((await b.evalJs("document.querySelectorAll('#stay-sel option').length")) === 5, "japan: 5 stay options");
   assert((await b.evalJs("document.querySelector('#stay-sel option').textContent")).includes("Osaka · Nov 1–3"), "japan: stay option uses period label");
   const jpStats = await b.evalJs("document.getElementById('stats').textContent");
   assert(jpStats.includes("12 nights") && jpStats.includes("¥"), "japan: stats show 12 nights and ¥");
-  assert((await b.evalJs("document.querySelectorAll('.legend div i').length")) === 3, "japan: legend lists 3 modes");
+  assert((await b.evalJs("document.querySelectorAll('.legend div i').length")) === 3, "japan: legend lists 3 families");
 
   await b.evalJs("document.querySelectorAll('.leaflet-marker-icon')[0].dispatchEvent(new MouseEvent('mouseover',{bubbles:true}))");
   const popupReady = await b.waitFor(
@@ -215,7 +218,7 @@ async function testLegs(b) {
   const chinaPaths = await b.evalJs("document.querySelectorAll('path.leaflet-interactive').length");
   assert(chinaPaths === 4, `china: 4 day-trip paths (got ${chinaPaths})`);
   const chinaStrokes = await b.evalJs("[...new Set([...document.querySelectorAll('path.leaflet-interactive')].map(p => p.getAttribute('stroke')))]");
-  const chinaColours = ["#d6336c", "#7048e8", "#1c7ed6", "#f59e0b", "#2f9e44", "#e8590c"];
+  const chinaColours = ["#d6336c", "#7048e8", "#1c7ed6", "#0c8599", "#2f9e44"];
   assert(chinaStrokes.every(c => chinaColours.includes(c)), `china: every path uses a journey colour (${chinaStrokes.join(",")})`);
 
   await b.navigate("/?trip=japan");
@@ -342,18 +345,61 @@ async function testRegressions(b) {
 async function testItaly(b) {
   await b.navigate("/?trip=italy");
   assert(await b.waitFor("document.title === 'Italy & France'", 8000), "italy: title is Italy & France");
-  assert((await b.evalJs("document.getElementById('sub').textContent")) === "24 nights · all by train", "italy: sub line");
+  assert((await b.evalJs("document.querySelector('#bar #sub .en').textContent")) === "24 nights · all by train", "italy: sub line");
   assert((await b.evalJs("document.querySelectorAll('.leaflet-marker-icon .stop').length")) === 20, "italy: 20 markers (7 stops + 13 day trips)");
   assert((await b.evalJs("document.querySelectorAll('#stay-sel option').length")) === 7, "italy: 7 stay options");
   assert((await b.evalJs("document.querySelector('#stay-sel option').textContent")).startsWith("Milan · 2 nights"), "italy: first stay is Milan");
   const stats = await b.evalJs("document.getElementById('stats').textContent");
   assert(stats.includes("24 nights") && stats.includes("€"), "italy: stats show 24 nights in euros");
-  assert((await b.evalJs("document.querySelectorAll('.legend div i').length")) === 7, "italy: legend lists 7 modes");
+  assert((await b.evalJs("document.querySelectorAll('.legend div i').length")) === 5, "italy: legend lists 5 families");
   await b.sleep(1500);
   assert((await b.evalJs("document.querySelectorAll('path.leaflet-interactive').length")) === 19, "italy: 19 rail legs");
   const noDriving = await b.evalJs("!performance.getEntriesByType('resource').some(e => e.name.includes('router.project-osrm.org'))");
   assert(noDriving, "italy: no driving-route lookups");
   assert(b.exceptions.length === 0, `italy: no page exceptions (${b.exceptions.join(" | ")})`);
+}
+
+async function testColours(b) {
+  const familyColours = ["#d6336c", "#7048e8", "#1c7ed6", "#0c8599", "#2f9e44"];
+  const strokes = async () =>
+    b.evalJs("[...new Set([...document.querySelectorAll('path.leaflet-interactive')].map(p => p.getAttribute('stroke')))]");
+
+  await b.navigate("/?trip=china");
+  await b.sleep(1800);
+  const china = await strokes();
+  assert(china.every((c) => familyColours.includes(c)), `china: strokes come from the shared palette (${china.join(",")})`);
+
+  await b.navigate("/?trip=italy");
+  await b.sleep(1800);
+  const italy = await strokes();
+  assert(italy.every((c) => familyColours.includes(c)), `italy: strokes come from the shared palette (${italy.join(",")})`);
+  assert(china.includes("#d6336c") && italy.includes("#d6336c"), "high-speed is the same red in china and italy");
+  assert(italy.length <= 5, `italy: five families at most (${italy.length})`);
+}
+
+async function testBilingual(b) {
+  await b.navigate("/?trip=italy");
+  await b.sleep(1500);
+  assert((await b.evalJs("document.querySelectorAll('.vi').length")) > 10, "italy: vietnamese lines are rendered");
+  const subtitle = await b.evalJs("document.getElementById('sub').textContent");
+  assert(subtitle.includes("24 đêm"), `italy: sub line has vietnamese (${subtitle})`);
+
+  const legendText = await b.evalJs("document.querySelector('.legend')?.textContent || ''");
+  assert(legendText.includes("Tàu cao tốc"), "legend is bilingual");
+  assert(legendText.includes("23/11/2026"), "legend shows the rate date");
+
+  // Paris is the 7th stop marker; open it and read the stay line.
+  await b.evalJs("document.querySelectorAll('.leaflet-marker-icon')[6].dispatchEvent(new MouseEvent('mouseover',{bubbles:true}))");
+  await b.waitFor("!!document.querySelector('.leaflet-popup')", 8000);
+  const paris = await b.evalJs("document.querySelector('.leaflet-popup')?.textContent || ''");
+  assert(paris.includes("Ở với gia đình"), "paris: free stay is a sentence in vietnamese");
+  assert(!paris.includes("€0"), "paris: no zero accommodation figure");
+
+  await b.evalJs("document.querySelectorAll('.leaflet-marker-icon')[0].dispatchEvent(new MouseEvent('mouseover',{bubbles:true}))");
+  await b.waitFor("document.querySelector('.leaflet-popup-content h3')?.textContent.startsWith('Milan')", 8000);
+  const milan = await b.evalJs("document.querySelector('.leaflet-popup')?.textContent || ''");
+  assert(milan.includes("≈") && milan.includes("₫"), "amounts carry a VND equivalent");
+  assert(milan.includes("€360"), "original currency is still shown");
 }
 
 async function main() {
@@ -362,6 +408,8 @@ async function main() {
     await testLegs(b);
     await testToggle(b);
     await testItaly(b);
+    await testColours(b);
+    await testBilingual(b);
     await testRegressions(b);
   });
   const passed = results.filter((r) => r.ok).length;
@@ -373,3 +421,4 @@ main().catch((e) => {
   console.error(`smoke: harness error: ${e.message}`);
   process.exit(1);
 });
+
