@@ -97,6 +97,7 @@ async function withBrowser(fn) {
   let seq = 0;
   const pending = new Map();
   const exceptions = [];
+  const initScripts = [];
   ws.onmessage = (ev) => {
     const msg = JSON.parse(ev.data);
     if (msg.id && pending.has(msg.id)) {
@@ -142,11 +143,14 @@ async function withBrowser(fn) {
       return false;
     },
     async addInitScript(source) {
-      await send("Page.addScriptToEvaluateOnNewDocument", { source });
+      const r = await send("Page.addScriptToEvaluateOnNewDocument", { source });
+      initScripts.push(r.result.identifier);
     },
     async clearInitScripts() {
-      // Detach and re-attach the page so init scripts stop applying.
-      await send("Page.navigate", { url: "about:blank" });
+      while (initScripts.length) {
+        const id = initScripts.pop();
+        await send("Page.removeScriptToEvaluateOnNewDocument", { identifier: id });
+      }
     },
     sleep,
   };
@@ -160,10 +164,47 @@ async function withBrowser(fn) {
   }
 }
 
+async function testMount(b) {
+  await b.navigate("/?trip=china");
+  assert(await b.waitFor("document.title === 'Guangzhou 2'", 5000), "china: title is Guangzhou 2");
+  assert((await b.evalJs("document.querySelector('#bar b').textContent")) === "Guangzhou 2", "china: bar title");
+  assert((await b.evalJs("document.getElementById('sub').textContent")) === "", "china: sub line hidden");
+  assert((await b.evalJs("document.querySelectorAll('.leaflet-marker-icon .stop').length")) === 5, "china: 5 markers");
+  assert((await b.evalJs("document.querySelectorAll('#stay-sel option').length")) === 5, "china: 5 stay options");
+  assert((await b.evalJs("document.querySelector('#stay-sel option').textContent")).startsWith("Guangzhou · 6 nights (base)"), "china: first stay option labelled");
+  assert((await b.evalJs("document.getElementById('stats').textContent")).includes("6 nights"), "china: stats nights");
+  assert((await b.evalJs("document.querySelectorAll('.legend div i').length")) === 4, "china: legend lists 4 modes");
+
+  await b.navigate("/?trip=japan");
+  assert(await b.waitFor("document.title === 'Hokuriku 2'", 5000), "japan: title is Hokuriku 2");
+  assert((await b.evalJs("document.getElementById('sub').textContent")) === "November 2027", "japan: sub line shows dates");
+  assert((await b.evalJs("document.querySelectorAll('.leaflet-marker-icon .stop').length")) === 9, "japan: 9 markers");
+  assert((await b.evalJs("document.querySelectorAll('#stay-sel option').length")) === 5, "japan: 5 stay options");
+  assert((await b.evalJs("document.querySelector('#stay-sel option').textContent")).includes("Osaka · Nov 1–3"), "japan: stay option uses period label");
+  const jpStats = await b.evalJs("document.getElementById('stats').textContent");
+  assert(jpStats.includes("12 nights") && jpStats.includes("¥"), "japan: stats show 12 nights and ¥");
+  assert((await b.evalJs("document.querySelectorAll('.legend div i').length")) === 3, "japan: legend lists 3 modes");
+
+  await b.evalJs("document.querySelectorAll('.leaflet-marker-icon')[0].dispatchEvent(new MouseEvent('mouseover',{bubbles:true}))");
+  const popupReady = await b.waitFor(
+    "[...document.querySelectorAll('.leaflet-popup img')].length > 0 && [...document.querySelectorAll('.leaflet-popup img')].every(i => i.complete && i.naturalWidth > 0)",
+    10000,
+  );
+  assert(popupReady, "japan: Osaka popup photos decode");
+  const popupText = await b.evalJs("document.querySelector('.leaflet-popup')?.textContent || ''");
+  assert(popupText.includes("Candeo Hotel") && popupText.includes("Stay"), "japan: popup shows the hotel");
+  assert(b.exceptions.length === 0, `no page exceptions on either journey (${b.exceptions.join(" | ")})`);
+
+  await b.addInitScript("Storage.prototype.getItem = function(){ throw new Error('storage blocked') }; Storage.prototype.setItem = function(){ throw new Error('storage blocked') };");
+  await b.navigate("/?trip=japan");
+  assert(await b.waitFor("document.title === 'Hokuriku 2'", 5000), "blocked storage: japan still renders");
+  assert((await b.evalJs("document.querySelectorAll('.leaflet-marker-icon .stop').length")) === 9, "blocked storage: all japan markers render");
+  await b.clearInitScripts();
+}
+
 async function main() {
   await withBrowser(async (b) => {
-    // Checks are added task by task.
-    void b;
+    await testMount(b);
   });
   const passed = results.filter((r) => r.ok).length;
   console.log(`\nsmoke: ${passed}/${results.length} checks passed`);

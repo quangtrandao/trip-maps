@@ -4,8 +4,46 @@
 <title>Trip Maps</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<style>
+html,body{height:100%;margin:0;font:14px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif;color:#1f2328}
+#bar{position:absolute;z-index:1000;top:10px;left:56px;right:10px;display:flex;gap:8px;flex-wrap:wrap;pointer-events:none}
+.pill{background:#fff;border-radius:10px;padding:6px 12px;box-shadow:0 2px 8px rgba(0,0,0,.2);pointer-events:auto}
+.pill b{font-size:15px}
+.bar-sub{font-size:11px;opacity:.55;margin-top:1px}
+#journeys{display:flex;gap:4px;padding:4px}
+.jbtn{border:0;background:transparent;color:inherit;font:inherit;font-size:12px;font-weight:600;padding:4px 10px;border-radius:8px;cursor:pointer}
+.jbtn[aria-pressed="true"]{background:#1f2328;color:#fff}
+#map{height:100%}
+.legend{background:#fff;padding:8px 12px;border-radius:10px;box-shadow:0 2px 8px rgba(0,0,0,.2);font-size:13px}
+.legend i{display:inline-block;width:22px;height:5px;border-radius:3px;margin-right:6px;vertical-align:middle}
+.stop{width:20px;height:20px;border-radius:50%;background:#fff;border:4px solid #1f2328;box-sizing:border-box}
+.stop.t{width:14px;height:14px;border:3px solid #6b7280}
+.hl .stop{background:#f59e0b;border-color:#b45309;box-shadow:0 0 0 5px rgba(245,158,11,.35)}
+#stay-sel{font:inherit;font-size:12px;border:0;background:transparent;color:inherit;max-width:210px}
+.lbl{background:rgba(255,255,255,.85);border:0;box-shadow:none;font-weight:700;padding:1px 5px}
+.pop{width:250px}.pop .ph{height:115px;margin:-1px -1px 8px;border-radius:10px 10px 0 0;background:#eee center/cover;display:flex;align-items:center;justify-content:center;color:#888;font-size:12px}
+.pop h3{margin:0}.pop .rg{color:#6b7280;font-size:12px;margin-bottom:6px}
+.pop dl{margin:0;display:grid;grid-template-columns:auto 1fr;gap:3px 10px}.pop dt{color:#6b7280}.pop dd{margin:0}
+.pop button,.pop a{font:inherit;font-size:12px;margin:8px 6px 0 0;padding:4px 8px;border:1px solid #d0d0d0;border-radius:7px;background:#f7f7f7;color:#1f2328;cursor:pointer;text-decoration:none;display:inline-block}
+.leaflet-popup-content{margin:12px 14px}
+.car{position:relative;height:130px;margin:-1px -1px 8px;border-radius:10px 10px 0 0;overflow:hidden;background:#eee}
+.trk{display:flex;height:100%;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none;cursor:grab;touch-action:pan-x;-webkit-user-select:none;user-select:none}.trk::-webkit-scrollbar{display:none}.trk.dragging{cursor:grabbing;scroll-snap-type:none}
+.trk img{flex:0 0 100%;width:100%;height:100%;object-fit:cover;scroll-snap-align:center;-webkit-user-drag:none;user-select:none;pointer-events:none}
+.pop .nv{position:absolute;top:50%;transform:translateY(-50%);margin:0;width:26px;height:26px;padding:0;border-radius:50%;background:rgba(255,255,255,.85);font-size:16px;line-height:1}
+.pop .pv{left:6px}.pop .nx{right:6px}
+.ct{position:absolute;bottom:6px;right:8px;background:rgba(0,0,0,.55);color:#fff;font-size:11px;padding:1px 6px;border-radius:8px}
+.none{height:100%;display:flex;align-items:center;justify-content:center;color:#888;font-size:12px}
+.leaflet-tooltip.leg{font-size:13px;line-height:1.4}.tt{display:block;width:190px;height:95px;object-fit:cover;border-radius:6px;margin-bottom:4px}
+</style>
 </head><body>
-<div id="map" style="height:100vh;margin:0"></div>
+<div id="bar">
+  <div class="pill"><b id="title"></b><div id="sub" class="bar-sub"></div></div>
+  <div class="pill" id="journeys"></div>
+  <div class="pill"><label>Stay: <select id="stay-sel"></select></label></div>
+  <div class="pill" id="stats"></div>
+</div>
+<div id="map"></div>
+
 <script>
 //==DATA-START==
 // Journey data. Regenerate a journey from its Notion database, then run
@@ -81,7 +119,156 @@ japan:{
 //==DATA-END==
 </script>
 <script>
-// App logic is added in the following tasks.
+(() => {
+"use strict";
+
+const markers = new Map();   // city -> L.marker for the current journey
+let map = null;              // current Leaflet map instance
+let J = null;                // current journey
+let gen = 0;                 // bumped on every mount; stale async work is dropped
+
+const money = v => J.currency.symbol + Math.round(v).toLocaleString(J.currency.locale);
+const dur = m => m >= 60 ? Math.floor(m / 60) + "h" + (m % 60 ? String(m % 60).padStart(2, "0") : "") : m + " min";
+
+function carHTML(list) {
+  return `<div class="car">${list.length
+    ? `<div class="trk">${list.map(u => `<img src="${u}" alt="">`).join("")}</div><span class="ct">1/${list.length}</span>`
+    : `<div class="none">No picture yet</div>`}</div>`;
+}
+
+function wireCar(d, list) {
+  const trk = d.querySelector(".trk"), ct = d.querySelector(".ct");
+  if (trk) {
+    const idx = () => Math.round(trk.scrollLeft / trk.clientWidth);
+    trk.addEventListener("scroll", () => { if (ct) ct.textContent = (idx() + 1) + "/" + list.length; }, { passive: true });
+    const pv = d.querySelector(".pv"), nx = d.querySelector(".nx");
+    if (pv) pv.onclick = e => { e.stopPropagation(); trk.scrollBy({ left: -trk.clientWidth, behavior: "smooth" }); };
+    if (nx) nx.onclick = e => { e.stopPropagation(); trk.scrollBy({ left: trk.clientWidth, behavior: "smooth" }); };
+    let drag = false, sx = 0, s0 = 0, moved = 0;
+    trk.addEventListener("dragstart", e => e.preventDefault());
+    trk.addEventListener("pointerdown", e => {
+      if (e.pointerType !== "mouse") return;
+      drag = true; moved = 0; sx = e.clientX; s0 = trk.scrollLeft;
+      trk.classList.add("dragging"); try { trk.setPointerCapture(e.pointerId); } catch (_) {} e.preventDefault();
+    });
+    trk.addEventListener("pointermove", e => { if (!drag) return; const dx = e.clientX - sx; moved = Math.max(moved, Math.abs(dx)); trk.scrollLeft = s0 - dx; });
+    const end = () => {
+      if (!drag) return;
+      drag = false; trk.classList.remove("dragging");
+      if (moved > 6) trk.scrollTo({ left: Math.round(trk.scrollLeft / trk.clientWidth) * trk.clientWidth, behavior: "smooth" });
+      moved = 0;
+    };
+    trk.addEventListener("pointerup", end); trk.addEventListener("pointercancel", end);
+  }
+  if (window.L && L.DomEvent) L.DomEvent.disableClickPropagation(d);
+}
+
+const hotel = s => {
+  const label = (s.acc || "") + (s.hd ? "" : " <i>(not booked)</i>");
+  return s.hu ? `<a class="hl" href="${s.hu}" target="_blank" rel="noopener">${label}</a>` : label;
+};
+
+function stopCard(s) {
+  const d = document.createElement("div");
+  d.className = "pop";
+  const list = s.pics || [];
+  d.innerHTML = carHTML(list) + `<h3>${s.c}</h3><div class="rg">${s.r} · ${s.base ? "Day trip from " + s.base : s.n + " night" + (s.n > 1 ? "s" : "")}</div>
+  <dl>${s.base ? "" : `<dt>Stay</dt><dd>${hotel(s)} (${money(s.ac)})</dd>`}<dt>Do</dt><dd>${s.act}</dd><dt>Budget</dt><dd><b>${money(s.b)}</b></dd>
+  ${s.t ? `<dt>${s.base ? "Travel" : "Next"}</dt><dd>${s.tn || s.t}, ${dur(s.m)}${s.base ? " each way" : ""}${s.tc != null ? ", " + money(s.tc) + " est." : ""}</dd>` : ""}</dl>`;
+  wireCar(d, list);
+  return d;
+}
+
+const hov = l => {
+  l.on("mouseover", () => l.setStyle({ weight: l.options.weight + 4 }));
+  l.on("mouseout", () => l.setStyle({ weight: l.options.weight - 4 }));
+};
+const gm = (a, b) => `https://www.google.com/maps/dir/?api=1&origin=${a.ll}&destination=${b.ll}&travelmode=transit`;
+
+const journeyIds = () => Object.keys(JOURNEYS);
+function pickJourneyFromUrl() {
+  const v = new URLSearchParams(location.search).get("trip");
+  return journeyIds().includes(v) ? v : null;
+}
+
+const stayLabel = s => (J.periods && J.periods[s.c]) ? J.periods[s.c] : `${s.n} night${s.n > 1 ? "s" : ""} (base)`;
+
+function mountJourney(id) {
+  if (!JOURNEYS[id]) return null;
+  gen++;
+  markers.clear();
+  if (map) { map.remove(); map = null; }
+  J = JOURNEYS[id];
+
+  document.title = J.title;
+  document.getElementById("title").textContent = J.title;
+  document.getElementById("sub").textContent = J.sub || "";
+
+  map = L.map("map", { zoomControl: true });
+
+  const layers = {};
+  for (const name of J.baseLayers) {
+    const def = TILES[name];
+    layers[name] = L.tileLayer(def.url, def.options);
+  }
+  layers[J.defaultBase].addTo(map);
+  L.control.layers(layers, null, { position: "topright" }).addTo(map);
+
+  const all = J.stops.concat(J.trips);
+  for (const s of all) {
+    const dayTrip = !!s.base;
+    const mk = L.marker(s.ll, {
+      icon: L.divIcon({ className: "", html: `<div class="stop ${dayTrip ? "t" : ""}"></div>`, iconSize: dayTrip ? [14, 14] : [20, 20] }),
+    }).addTo(map);
+    markers.set(s.c, mk);
+    mk.bindPopup(() => stopCard(s), { maxWidth: 280, autoPan: true });
+    mk.bindTooltip(s.c, { permanent: true, direction: "right", offset: [dayTrip ? 8 : 12, 0], className: "lbl" });
+    mk.on("mouseover", () => mk.openPopup());
+  }
+
+  const psel = document.getElementById("stay-sel");
+  psel.innerHTML = "";
+  const entries = J.stops.map(s => [s.c, stayLabel(s)]);
+  if (J.staySelector === "stops+trips") for (const t of J.trips) entries.push([t.c, "day trip from " + t.base]);
+  for (const [city, sub] of entries) {
+    const o = document.createElement("option");
+    o.value = city;
+    o.textContent = city + " · " + sub;
+    psel.appendChild(o);
+  }
+  psel.onchange = () => {
+    for (const mk of markers.values()) mk.getElement()?.classList.remove("hl");
+    const s = all.find(x => x.c === psel.value);
+    if (s && markers.has(s.c)) {
+      const mk = markers.get(s.c);
+      mk.getElement()?.classList.add("hl");
+      mk.openPopup();
+      map.panTo(s.ll);
+    }
+  };
+
+  document.getElementById("stats").innerHTML =
+    `${J.stops.reduce((a, s) => a + s.n, 0)} nights · ${money(all.reduce((a, s) => a + s.b, 0))} total budget · ` +
+    `${dur(J.stops.reduce((a, s) => a + s.m, 0))} in transit · ` +
+    `~${money(J.stops.reduce((a, s) => a + (s.tc || 0), 0) + 2 * J.trips.reduce((a, s) => a + (s.tc || 0), 0))} transport (est.)`;
+
+  const lg = L.control({ position: "bottomleft" });
+  lg.onAdd = () => {
+    const d = L.DomUtil.create("div", "legend");
+    d.innerHTML = Object.keys(J.colors).filter(k => all.some(s => s.t === k))
+      .map(k => `<div><i style="background:${J.colors[k]}"></i>${k}</div>`).join("") +
+      "<div style='color:#6b7280;margin-top:4px'>Dashed = day trip. Hover a line for transport, time and cost; click it for pictures.</div>";
+    return d;
+  };
+  lg.addTo(map);
+
+  const pts = J.map.fitInclude === "stops+trips" ? all : J.stops;
+  map.fitBounds(L.latLngBounds(pts.map(s => s.ll)).pad(.15));
+  return map;
+}
+
+mountJourney(pickJourneyFromUrl() || "japan");
+})();
 </script>
 </body></html>
 
